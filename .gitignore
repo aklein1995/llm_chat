@@ -1,5 +1,7 @@
 Hints.pptx
 models/*
+responses/*
+!README.md
 fine-tune_example.py
 # Byte-compiled / optimized / DLL files
 __pycache__/
