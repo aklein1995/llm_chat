@@ -26,22 +26,30 @@ class GPTLLM(BaseLLM):
         elif role == "assistant":
             return f"Assistant: {content}\n"
 class QwenVLM(BaseVLM):
-    def format_message(self, role, content, image_path=None):
+    def format_message(self, text, image_paths=None):
         """
-        Formats messages according to the Qwen2.5-VL template.
-        
-        - role: "system", "user", or "assistant".
-        - content: The text prompt.
-        - image_path: Path to an image (optional).
-        
-        If an image is provided, it is referenced as `<image>` within the prompt.
+            Formats the message using `apply_chat_template()`.
         """
+        messages = [
+            # message1
+            {"role": "system", "content": "You are a helpful assistant."},
+            # message2 where we attach attach images
+            {
+                "role": "user", 
+                "content": [ 
+                    {"type":"text", "text": text},
+                    # {"type":"image","image": image_path},]
+                ] + [{"type": "image", "image": img} for img in image_paths]  # Dynamically add images
 
-        message = f"<|im_start|>{role}\n{content}"
+            }
+        ]
 
-        if image_path:
-            message += "\n<image>"  # Qwen2.5-VL uses <image> to indicate an image is attached.
+        formatted_text = self.processor.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=False,
+            return_tensors=None  # Return as string for `pipeline()`
+        )
+        print("\nFormatted text:", formatted_text)
+        return formatted_text
 
-        message += "<|im_end|>"
-
-        return message

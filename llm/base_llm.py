@@ -80,8 +80,6 @@ class BaseLLM(ABC):
             self.formatted_memory = ""
 
 
-
-
 class BaseVLM(ABC):
     def __init__(self, model_path, temperature=0.9, device="cuda", max_new_tokens=200):
         """
@@ -90,17 +88,20 @@ class BaseVLM(ABC):
         """
         self.model = AutoModelForVision2Seq.from_pretrained(
             model_path,
-            device_map=device,
-            # torch_dtype=torch.bfloat16,
+            device_map="auto",
+            torch_dtype=torch.float16,
         )
         self.processor = AutoProcessor.from_pretrained(model_path)
 
         self.hf_pipeline = pipeline(
-            "image-to-text",
+            # "image-to-text",
+            "image-text-to-text",
             model=self.model,
             tokenizer=self.processor.tokenizer,
-            temperature=temperature,
+            image_processor=self.processor,
+            processor=self.processor,
             max_new_tokens=max_new_tokens
+            # temperature=temperature,
         )
         
         self.memory = ""
@@ -110,25 +111,26 @@ class BaseVLM(ABC):
         """Abstract method for formatting messages. Must be implemented by subclasses."""
         pass
 
-    def __call__(self, text, image_path=None):
+    def __call__(self, text, image_paths=None):
         """
-        Generates a response using the VLM. Supports both text-only and text+image inputs.
+        Generates a response using the VLM.
         """
-        inputs = {"text": text}
+        inputs={}
         
-        if image_path:
-            image = Image.open(image_path).convert("RGB")
-            inputs["image"] = image
+        # add image
+        if image_paths:
+            inputs["images"] = [Image.open(i).convert("RGB") for i in image_paths]
 
-        formatted_prompt = self.format_message("user", text)
-        self.memory += formatted_prompt  # Keep conversation context
+        # add text
+        formatted_text = self.format_message(text,image_paths)
+        inputs["text"] = formatted_text
 
+        print("\nInput to pipeline:", inputs)
+
+        # process info
         response = self.hf_pipeline(**inputs)
-        assistant_response = self.format_message("assistant", response[0]["generated_text"])
-        self.memory += assistant_response
-
         return response[0]["generated_text"]
-
+    
     def clear_memory(self):
         """Clears conversation memory."""
         print("Cleaning memory...")
